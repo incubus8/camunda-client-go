@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	camunda_client_go "github.com/citilinkru/camunda-client-go"
-	"github.com/citilinkru/camunda-client-go/processor"
 	"time"
+
+	camunda_client_go "github.com/incubus8/camunda-client-go"
+	"github.com/incubus8/camunda-client-go/processor"
 )
 
 func main() {
