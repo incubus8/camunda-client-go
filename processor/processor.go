@@ -29,7 +29,11 @@ type ProcessorOptions struct {
 	// use priority
 	UsePriority *bool
 	// long polling timeout
+	//
+	// Deprecated: Use LongPollingTimeout instead
 	AsyncResponseTimeout *int
+	// long polling timeout
+	LongPollingTimeout time.Duration
 }
 
 // NewProcessor a create new instance Processor
@@ -95,11 +99,20 @@ func (p *Processor) AddHandler(topics *[]camunda_client_go.QueryFetchAndLockTopi
 			}
 		}
 	}
+
+	var asyncResponseTimeout *int
+	if p.options.AsyncResponseTimeout != nil {
+		asyncResponseTimeout = p.options.AsyncResponseTimeout
+	} else if p.options.LongPollingTimeout.Nanoseconds() > 0 {
+		msValue := int(p.options.LongPollingTimeout.Nanoseconds() / int64(time.Millisecond))
+		asyncResponseTimeout = &msValue
+	}
+
 	go p.startPuller(camunda_client_go.QueryFetchAndLock{
 		WorkerId:             p.options.WorkerId,
 		MaxTasks:             p.options.MaxTasks,
 		UsePriority:          p.options.UsePriority,
-		AsyncResponseTimeout: p.options.AsyncResponseTimeout,
+		AsyncResponseTimeout: asyncResponseTimeout,
 		Topics:               topics,
 	}, handler)
 }
@@ -107,8 +120,13 @@ func (p *Processor) AddHandler(topics *[]camunda_client_go.QueryFetchAndLockTopi
 func (p *Processor) startPuller(query camunda_client_go.QueryFetchAndLock, handler Handler) {
 	var tasksChan = make(chan *camunda_client_go.ResLockedExternalTask)
 
+	maxParallelTaskPerHandler := p.options.MaxParallelTaskPerHandler
+	if maxParallelTaskPerHandler < 1 {
+		maxParallelTaskPerHandler = 1
+	}
+
 	// create worker pool
-	for i := 0; i < p.options.MaxParallelTaskPerHandler; i++ {
+	for i := 0; i < maxParallelTaskPerHandler; i++ {
 		go p.runWorker(handler, tasksChan)
 	}
 
